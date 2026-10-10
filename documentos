@@ -1,0 +1,74 @@
+## Documentação Arquitetural: Sistema de Reservas de Laboratórios
+Este documento descreve o fluxo de dados e a responsabilidade de
+ cada camada na aplicação Full Stack de Reservas de Laboratório.
+
+# 1. Visão Geral da Arquitetura
+O sistema é dividido em duas camadas principais (Frontend e Backend)
+ que se comunicam através do protocolo HTTP/JSON:
+
+# [ NAVEGADOR (Frontend) ] ── (Fetch API / HTTP) ──> [ API REST (Backend) ] ──> [ BANCO DE DADOS ]
+   ├── index.html                                   ├── main.py (FastAPI)       └── reservas.db (SQLite)
+   ├── style.css                                    ├── models.py (Pydantic)
+   └── app.js                                       ├── services.py (Lógica)
+                                                    └── database.py (SQL)
+
+## 2. Linha de Raciocínio Passo a Passo (Fluxo da Aplicação)
+# EU USEI  O (Open with Live Server = http://127.0.0.1:5500/frontend/index.html)
+# Passo 1: Interface do Utilizador (Frontend / HTML + CSS)O utilizador 
+acede à interface Web em [http://127.0.0.1:5500/frontend/index.html].
+O formulário HTML recolhe os dados da reserva: Laboratório, Responsável, 
+Data, Turno, Finalidade e Quantidade de Alunos (1 a 40).  
+
+## Passo 2: Captura de Evento e Envio Assíncrono (Frontend / JavaScript)
+O ficheiro app.js escuta o evento submit do formulário.
+Impede a atualização automática da página via e.preventDefault().
+Converte os campos digitados num objeto JSON.
+Dispara uma requisição HTTP POST utilizando a Fetch API para o endpoint 
+do backend: [http://127.0.0.1:8000/reservas](http://127.0.0.1:8000/reservas).
+
+## Passo 3: Recepção e Validação do Contrato (Backend / FastAPI + Pydantic)
+O ficheiro main.py recebe a requisição HTTP.
+O middleware CORS permite a comunicação segura vinda da origem 5500.
+O Pydantic (models.py) valida automaticamente a estrutura dos dados recebidos:
+Garante que os tipos estão corretos (strings, inteiros).
+Aplica as regras de negócio de entrada, como quantidade_de_alunos dentro 
+do intervalo entre 1 e 40 (Field(ge=1, le=40)).Se os dados forem inválidos, 
+a API devolve um erro HTTP 422 Unprocessable Entity.  
+
+## Passo 4: Regra de Negócio e Persistência (Backend / Services + Database)
+Se os dados forem válidos, main.py chama a camada de serviços (services.py).
+O services.py verifica se já existe conflito de agendamento (mesmo laboratório, mesma data e mesmo turno).
+Em caso de sucesso, chama database.py para executar a instrução
+SQL INSERT INTO reservas ....O SQLite salva a nova linha com o status "CONFIRMADA" no ficheiro dados/reservas.db.  
+
+## Passo 5: Resposta HTTP e Atualização Dinâmica do DOM (Frontend)
+O backend responde com o código HTTP 201 Created juntamente com 
+o objeto JSON da reserva recém-criada (incluindo o id gerado automaticamente).O
+ficheiro app.js recebe a resposta de sucesso, limpa o formulário e executa a função carregarReservas().
+A função carregarReservas() faz um GET para /reservas e redesenha dinamicamente
+as linhas da tabela no HTML sem necessidade de recarregar a página.   
+
+## 3. Resumo das Responsabilidades dos FicheirosFicheiroCamadaFunção Principalindex.html  
+# FrontendEstrutura visual da tabela e formulário de captação.   
+# style.css   FrontendEstilização, layout responsivo e formatação visual.  
+# app.js   FrontendLógica de interação com a DOM e consumo da API via fetch().   
+
+# main.py   BackendDefinição das rotas HTTP, tratamento de excepções e CORS.models.py   
+# BackendContrato de dados e validações estruturais com Pydantic.   
+# services.py   BackendRegras de negócio (checagem de conflitos, montagem dos registos).
+# database.py   BackendConexão SQLite e criação/gestão de tabelas SQL.reservas.db   
+# Base de DadosFicheiro binário de armazenamento persistente.
+
+## PS C:\Users\zecan\OneDrive\Documentos\projeto_reservas_laboratorios> cd backend
+PS C:\Users\zecan\OneDrive\Documentos\projeto_reservas_laboratorios\backend> uvicorn main:app --reload
+INFO:     Will watch for changes in these directories: ['C:\\Users\\zecan\\OneDrive\\Documentos\\projeto_reservas_laboratorios\\backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [27744] using WatchFiles
+INFO:     Started server process [33424]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [33424]
+INFO:     Stopping reloader process [27744]
